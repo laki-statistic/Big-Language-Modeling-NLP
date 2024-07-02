@@ -1,0 +1,268 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 加载库"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from pathlib import Path\n",
+    "from openai import OpenAI\n",
+    "import time\n",
+    "import os\n",
+    "import re"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "client = OpenAI(\n",
+    "api_key=\"sk-G4ss5MTPadofwAK2yAO1mDFn8J2KfMdYA2OnS5IIO4I\",\n",
+    "base_url=\"https://api.moonshot.cn/v1\",\n",
+    "    )"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "txt_files_directory=\"C:/Users/0/one/final_taidibei/abstract_txt4/\"\n",
+    "wait_time=60\n",
+    "\n",
+    "answers=[]\n",
+    "filenames=[]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "for filename in os.listdir(txt_files_directory):\n",
+    "\n",
+    "    # 等待文件处理完成\n",
+    "    time.sleep(wait_time)  # 添加延时\n",
+    "    \n",
+    "    if filename.endswith(\".txt\"):\n",
+    "        # 读取文本文件\n",
+    "        file_object = client.files.create(file=Path(os.path.join(txt_files_directory, filename)), purpose=\"file-extract\") \n",
+    "\n",
+    "        file_content = client.files.content(file_id=file_object.id).text\n",
+    "        # 把它放进请求中\n",
+    "        messages=[\n",
+    "                {\n",
+    "                    \"role\": \"system\",\n",
+    "                    \"content\": \"你是 Kimi，由 Moonshot AI 提供的人工智能助手，你更擅长中文和英文的对话。你会为用户提供安全，有帮助，准确的回答。同时，你会拒绝一切涉及恐怖主义，种族歧视，黄色暴力等问题的回答。Moonshot AI 为专有名词，不可翻译成其他语言。\",\n",
+    "                },\n",
+    "                {\n",
+    "                    \"role\": \"system\",\n",
+    "                    \"content\": file_content,\n",
+    "                },\n",
+    "                {\"role\": \"user\", \"content\": \"从四个维度评价文件内容完整性：1.“智慧政务”中的文本挖掘应用的背景；2.问题 1：群众留言分类的解答；3.问题 2：热点问题挖掘的解答；4.问题 3：答复意见的评价的解答。给出各项的得分,每项满分为2.5，直接返回得分。不需要额外的提示字\"},\n",
+    "            \n",
+    "            ]\n",
+    "\n",
+    "\n",
+    "            # 然后调用 chat-completion, 获取 kimi 的回答\n",
+    "        completion = client.chat.completions.create(\n",
+    "            model=\"moonshot-v1-32k\",\n",
+    "            messages=messages,\n",
+    "            temperature=0.01,\n",
+    "                )\n",
+    "            \n",
+    "        filenames.append(filename)\n",
+    "        answers.append(completion.choices[0].message.content)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import pandas as pd\n",
+    "df=pd.DataFrame(answers, columns=['Scores'])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df['filename']=filenames"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 将DataFrame保存为Excel文件\n",
+    "df.to_excel(\"C:/Users/0/one/final_taidibei/conplete_score4.xlsx\", index=False, header=False)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# 合并返回的完整性评价"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 完整性得分合并\n",
+    "import pandas as pd\n",
+    "import os\n",
+    "import re"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 假设你有一个目录路径，其中包含多个Excel文件\n",
+    "directory_path = 'C:/Users/0/one/final_taidibei/complete_score1/'\n",
+    "\n",
+    "# 获取目录下所有的Excel文件\n",
+    "excel_files = [f for f in os.listdir(directory_path) if f.endswith(('.xlsx', '.xls'))]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 获取第一个分组的完整性得分数据\n",
+    "df = pd.read_excel(os.path.join(directory_path, excel_files[0]),header=None)\n",
+    "complete_score=[]\n",
+    "for i in df[0]:\n",
+    "    complete_score.append(re.findall(r'\\d+\\.\\d+',i))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df_complete_score=pd.DataFrame(complete_score)\n",
+    "df_complete_score.drop(4, axis=1, inplace=True)\n",
+    "df_complete_score.fillna(0, inplace=True)\n",
+    "df_complete_score['filename']=df[1]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 获取第二个分组的完整性得分数据\n",
+    "df = pd.read_excel(os.path.join(directory_path, excel_files[1]),header=None)\n",
+    "complete_score=[]\n",
+    "for i in df[0]:\n",
+    "    complete_score.append(re.findall(r'\\d+\\.\\d+',i))\n",
+    "df_complete_score1=pd.DataFrame(complete_score)\n",
+    "df_complete_score1.fillna(0, inplace=True)\n",
+    "df_complete_score1['filename']=df[1]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 获取第三个分组的完整性得分数据\n",
+    "df = pd.read_excel(os.path.join(directory_path, excel_files[2]),header=None)\n",
+    "complete_score=[]\n",
+    "for i in df[0]:\n",
+    "    complete_score.append(re.findall(r'\\d+\\.\\d+',i))\n",
+    "df_complete_score2=pd.DataFrame(complete_score)\n",
+    "df_complete_score2.drop(4, axis=1, inplace=True)\n",
+    "df_complete_score2.fillna(0, inplace=True)\n",
+    "df_complete_score2['filename']=df[1]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 获取第四个分组的完整性得分数据\n",
+    "df = pd.read_excel(os.path.join(directory_path, excel_files[3]),header=None)\n",
+    "complete_score=[]\n",
+    "for i in df[0]:\n",
+    "    complete_score.append(re.findall(r'\\d+\\.\\d+',i))\n",
+    "df_complete_score3=pd.DataFrame(complete_score)\n",
+    "df_complete_score3.drop(4, axis=1, inplace=True)\n",
+    "df_complete_score3.fillna(0, inplace=True)\n",
+    "df_complete_score3['filename']=df[1]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#合并数据\n",
+    "df_concat_complete = pd.concat([df_complete_score,df_complete_score1,df_complete_score2,df_complete_score3,df_complete_score4,df_complete_score5,\n",
+    "                                df_complete_score6,df_complete_score7,df_complete_score8,df_complete_score9], ignore_index=True)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df_concat_complete.to_excel(\"concat_complete_score.xlsx\", index=False, header=True)"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "transformers",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.9.19"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}
