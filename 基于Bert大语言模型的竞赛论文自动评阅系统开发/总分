@@ -1,0 +1,65 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Apr 25 16:40:50 2024
+
+@author: 王爸爸
+"""
+
+import pandas as pd
+import numpy as np
+data = pd.read_excel("C:\\Users\\王爸爸\\Desktop\\泰迪杯数据挖掘\\总得分.xlsx")
+
+df = pd.DataFrame(data)
+
+# 定义权重
+weights = {
+    '实质性得分': 0.3,  # 更高的权重
+    '摘要质量得分': 0.3,
+    '完整性得分': 0.2,  # 低一些的权重
+    '写作水平得分': 0.2
+}
+
+# 计算加权总分
+df['综合评分'] = df.apply(lambda x: sum(x[k] * v for k, v in weights.items()), axis=1)
+
+# 将分数规范到10分制
+max_score = df['综合评分'].max()
+df['综合评分'] = df['综合评分'] / max_score * 10
+df_sorted = df.sort_values(by='综合评分', ascending=False).reset_index(drop=True)
+# 定义函数以满足百分比限制
+def adjust_scores(df_sorted, total_papers):
+
+    # 计算每个评分段的论文数
+    high_score_count = int(total_papers * 0.03)
+    upper_mid_score_count = int(total_papers * 0.15)
+    lower_mid_score_count = int(total_papers * 0.35)
+    
+    # 分配分数
+    df_sorted.loc[:high_score_count, '综合评分'] = df_sorted.loc[:high_score_count, '综合评分'].clip(lower=8)
+    df_sorted.loc[high_score_count:upper_mid_score_count, '综合评分'] = df_sorted.loc[high_score_count:upper_mid_score_count, '综合评分'].clip(upper=7, lower=6)
+    df_sorted.loc[upper_mid_score_count:lower_mid_score_count, '综合评分'] = df_sorted.loc[upper_mid_score_count:lower_mid_score_count, '综合评分'].clip(upper=5, lower=4)
+    df_sorted.loc[lower_mid_score_count:, '综合评分'] = df_sorted.loc[lower_mid_score_count:, '综合评分'].clip(upper=3)
+    
+    # 确保不少于10%的论文分数在6-7之间
+    mid_score_count = total_papers * 0.10
+    if df_sorted['综合评分'].between(6,7).sum() < mid_score_count:
+        # 从4-5分中提升到6-7分，直到达到10%为止
+        idxs_to_upgrade = df_sorted.loc[df_sorted['综合评分'].between(4,5)].index
+        upgrade_count = int(mid_score_count - df_sorted['综合评分'].between(6,7).sum())
+        df_sorted.loc[idxs_to_upgrade[:upgrade_count], '综合评分'] = 6
+    
+    # 确保不少于20%的论文分数在4-5之间
+    mid_low_score_count = total_papers * 0.20
+    if df_sorted['综合评分'].between(4,5).sum() < mid_low_score_count:
+        # 从0-3分中提升到4-5分，直到达到20%为止
+        idxs_to_upgrade = df_sorted.loc[df_sorted['综合评分'].between(0,3)].index
+        upgrade_count = int(mid_low_score_count - df_sorted['综合评分'].between(4,5).sum())
+        df_sorted.loc[idxs_to_upgrade[:upgrade_count], '综合评分'] = 4
+    
+    return df_sorted['综合评分']
+df_sorted['综合评分'] = adjust_scores(df_sorted, len(df_sorted))
+
+
+df_sorted.to_excel(r'C:\Users\王爸爸\Desktop\result.xlsx', index=False)
+
+
