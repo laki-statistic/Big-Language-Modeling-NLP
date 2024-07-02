@@ -1,0 +1,438 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import os\n",
+    "os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from transformers import BertTokenizer, BertModel\n",
+    "import torch\n",
+    "from sklearn.metrics.pairwise import cosine_similarity\n",
+    "import pandas as pd"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def read_txt(root_directory):\n",
+    "    # 初始化一个空列表来存储文件内容\n",
+    "    texts = []\n",
+    "    # 使用 os.walk 遍历目录树\n",
+    "    for dirpath, dirnames, filenames in os.walk(root_directory):\n",
+    "        for file_name in filenames:\n",
+    "            if file_name.endswith('.txt'):\n",
+    "                file_path = os.path.join(dirpath, file_name)  # 构建完整的文件路径\n",
+    "                # 打开文件并读取内容\n",
+    "                with open(file_path, 'r', encoding='utf-8') as file:\n",
+    "                    content = file.read()\n",
+    "                    # 将文件内容添加到texts列表中\n",
+    "                    texts.append(content)\n",
+    "    return  texts,filenames\n",
+    "                "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 8,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "content,filenames=read_txt('C:/Users/0/one/final_taidibei/content_txt/')\n",
+    "content1,filenames1=read_txt('C:/Users/0/one/final_taidibei/content_txt1/')\n",
+    "content2,filenames2=read_txt('C:/Users/0/one/final_taidibei/content_txt2/')\n",
+    "content3,filenames3=read_txt('C:/Users/0/one/final_taidibei/content_txt3/')\n",
+    "content4,filenames4=read_txt('C:/Users/0/one/final_taidibei/content_txt4/')\n",
+    "content5,filenames5=read_txt('C:/Users/0/one/final_taidibei/content_txt5/')\n",
+    "content6,filenames6=read_txt('C:/Users/0/one/final_taidibei/content_txt6/')\n",
+    "content7,filenames7=read_txt('C:/Users/0/one/final_taidibei/content_txt7/')\n",
+    "content8,filenames8=read_txt('C:/Users/0/one/final_taidibei/content_txt8/')\n",
+    "content9,filenames9=read_txt('C:/Users/0/one/final_taidibei/content_txt9/')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 9,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df_content= pd.DataFrame({'content': content, 'filename': filenames})\n",
+    "df_content1= pd.DataFrame({'content': content1, 'filename': filenames1})\n",
+    "df_content2= pd.DataFrame({'content': content2, 'filename': filenames2})\n",
+    "df_content3= pd.DataFrame({'content': content3, 'filename': filenames3})\n",
+    "df_content4= pd.DataFrame({'content': content4, 'filename': filenames4})\n",
+    "df_content5= pd.DataFrame({'content': content5, 'filename': filenames5})\n",
+    "df_content6= pd.DataFrame({'content': content6, 'filename': filenames6})\n",
+    "df_content7= pd.DataFrame({'content': content7, 'filename': filenames7})\n",
+    "df_content8= pd.DataFrame({'content': content8, 'filename': filenames8})\n",
+    "df_content9= pd.DataFrame({'content': content9, 'filename': filenames9})"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 10,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "concat_content = pd.concat([df_content,df_content1,df_content2,df_content3,df_content4,\n",
+    "                             df_content5,df_content6,df_content7,df_content8,df_content9], ignore_index=True)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import jieba\n",
+    "from sklearn.feature_extraction.text import TfidfVectorizer\n",
+    "import nltk"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "[nltk_data] Downloading package stopwords to\n",
+      "[nltk_data]     C:\\Users\\0\\AppData\\Roaming\\nltk_data...\n",
+      "[nltk_data]   Package stopwords is already up-to-date!\n",
+      "[nltk_data] Downloading package punkt to\n",
+      "[nltk_data]     C:\\Users\\0\\AppData\\Roaming\\nltk_data...\n",
+      "[nltk_data]   Package punkt is already up-to-date!\n"
+     ]
+    }
+   ],
+   "source": [
+    "# 加载停用词表\n",
+    "nltk.download('stopwords')\n",
+    "nltk.download('punkt')\n",
+    "from nltk.corpus import stopwords\n",
+    "from nltk.tokenize import word_tokenize"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 读取文本文件\n",
+    "with open('C:/Users/0/one/final_taidibei/writing_level/standard.txt', 'r', encoding='utf-8') as file:\n",
+    "    text_content = file.read()\n",
+    "\n",
+    "# 文本预处理：分词和去除停用词\n",
+    "jieba.load_userdict('C:/Users/0/one/final_taidibei/writing_level/fenci.txt')\n",
+    "full_content= text_content .replace(' ','').replace('\\n','')\n",
+    "words = jieba.lcut(full_content)\n",
+    "stop_words = set(stopwords.words('chinese'))\n",
+    "filtered_words = [word for word in words if word not in stop_words]\n",
+    "\n",
+    "# TF-IDF特征提取\n",
+    "tfidf_vectorizer = TfidfVectorizer()\n",
+    "tfidf = tfidf_vectorizer.fit_transform([' '.join(filtered_words)])\n",
+    "\n",
+    "# 计算TF-IDF特征值\n",
+    "feature_names = tfidf_vectorizer.get_feature_names_out()\n",
+    "tfidf_feature_values = tfidf.toarray()[0]\n",
+    "\n",
+    "# 关键词识别：选择TF-IDF得分高的词\n",
+    "top_n = 15  # 选择排名前10的关键词\n",
+    "keywords = sorted(zip(tfidf_feature_values, feature_names), reverse=True)[:top_n]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "list(feature_names).index(keywords[1][1])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 8,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Keyword: 针对, Evidence: 评阅 赞成数目 趋势 这是 采用 针对 针对实际 问题热度的度量 非均衡 鼓励\n",
+      "Keyword: 评价, Evidence: 要点 角度 解决问题 解释性 言之有理 评价 评分 评阅 赞成数目 趋势 这是\n",
+      "Keyword: 文本, Evidence: 效率 数字 数据 数据分析 数据挖掘 文本 文本挖掘 方法 施政 智慧政务 本次\n",
+      "Keyword: 数据, Evidence: 提取 政府 政府部门 效率 数字 数据 数据分析 数据挖掘 文本 文本挖掘 方法\n",
+      "Keyword: 一个, Evidence: 10 2020 一个 作用 依据 值得 分制 分析\n",
+      "Keyword: 鼓励, Evidence: 采用 针对 针对实际 问题热度的度量 非均衡 鼓励\n",
+      "Keyword: 评阅, Evidence: 解决问题 解释性 言之有理 评价 评分 评阅 赞成数目 趋势 这是 采用 针对\n",
+      "Keyword: 群众留言分类, Evidence: 管理水平 类别 系统 给出 综合 群众留言分类 自然语言 要点 角度 解决问题 解释性\n",
+      "Keyword: 答复, Evidence: 相关 相关性 研究 社会 竞赛 答复 答复意见的评价 管理水平 类别 系统 给出\n",
+      "Keyword: 社会, Evidence: 留言 留言数目 相关 相关性 研究 社会 竞赛 答复 答复意见的评价 管理水平 类别\n",
+      "Keyword: 方法, Evidence: 数据 数据分析 数据挖掘 文本 文本挖掘 方法 施政 智慧政务 本次 来源于 极大\n",
+      "Keyword: 政府部门, Evidence: 指标 推动 提升 提取 政府 政府部门 效率 数字 数据 数据分析 数据挖掘\n",
+      "Keyword: 提取, Evidence: 意见 技术 指标 推动 提升 提取 政府 政府部门 效率 数字 数据\n",
+      "Keyword: 分类, Evidence: 作用 依据 值得 分制 分析 分类 分类结果 创新 单独 即时性 反对数目\n",
+      "Keyword: 值得, Evidence: 10 2020 一个 作用 依据 值得 分制 分析 分类 分类结果 创新\n"
+     ]
+    }
+   ],
+   "source": [
+    "context_window = 5  # 定义上下文窗口大小\n",
+    "evidences = {}\n",
+    "for keyword in keywords:\n",
+    "    keyword_index = list(feature_names).index(keyword[1])\n",
+    "    start = max(0, keyword_index - context_window)\n",
+    "    end = min(len(feature_names), keyword_index + context_window + 1)\n",
+    "    evidences[keyword[1]] = ' '.join(feature_names[start:end])\n",
+    "\n",
+    "# 输出关键词和对应的论据\n",
+    "for keyword, evidence in evidences.items():\n",
+    "    print(f\"Keyword: {keyword}, Evidence: {evidence}\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 文本预处理：分词和去除停用词\n",
+    "def fenci(path):\n",
+    "    with open(path, 'r', encoding='utf-8') as file:\n",
+    "        text_content = file.read()\n",
+    "\n",
+    "    # 文本预处理：分词和去除停用词\n",
+    "    jieba.load_userdict('C:/Users/0/one/final_taidibei/writing_level/fenci.txt')\n",
+    "    full_content= text_content .replace(' ','').replace('\\n','')\n",
+    "    words = jieba.lcut(full_content)\n",
+    "    stop_words = set(stopwords.words('chinese'))\n",
+    "    filtered_words = [word for word in words if word not in stop_words]\n",
+    "\n",
+    "    return filtered_words"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# TF-IDF特征提取\n",
+    "def TFIDF(filtered_words):\n",
+    "    tfidf_vectorizer = TfidfVectorizer()\n",
+    "    tfidf = tfidf_vectorizer.fit_transform([' '.join(filtered_words)])\n",
+    "\n",
+    "    # 计算TF-IDF特征值\n",
+    "    feature_names = tfidf_vectorizer.get_feature_names_out()\n",
+    "    tfidf_feature_values = tfidf.toarray()[0]\n",
+    "\n",
+    "    # 关键词识别：选择TF-IDF得分高的词\n",
+    "    top_n = 15  # 选择排名前10的关键词\n",
+    "    keywords = sorted(zip(tfidf_feature_values, feature_names), reverse=True)[:top_n]\n",
+    "    return keywords"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 论据挖掘：这里我们需要分析关键词的上下文，这可能需要更复杂的逻辑\n",
+    "# 例如，我们可以查找关键词附近的词，以确定可能的论据\n",
+    "def keyword_context(keywords,feature_names):\n",
+    "    context_window = 5  # 定义上下文窗口大小\n",
+    "    evidences = {}\n",
+    "    for keyword in keywords:\n",
+    "        keyword_index = list(feature_names).index(keyword[1])\n",
+    "        start = max(0, keyword_index - context_window)\n",
+    "        end = min(len(feature_names), keyword_index + context_window + 1)\n",
+    "        evidences[keyword[1]] = ' '.join(feature_names[start:end])\n",
+    "\n",
+    "    # 输出关键词和对应的论据\n",
+    "    for keyword, evidence in evidences.items():\n",
+    "        print(f\"Keyword: {keyword}, Evidence: {evidence}\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 13,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 读取文本文件\n",
+    "with open('C:/Users/0/one/final_taidibei/content_txt/1.txt', 'r', encoding='utf-8') as file:\n",
+    "    text_content = file.read()\n",
+    "\n",
+    "# 文本预处理：分词和去除停用词\n",
+    "jieba.load_userdict('C:/Users/0/one/final_taidibei/writing_level/fenci.txt')\n",
+    "full_content= text_content .replace(' ','').replace('\\n','')\n",
+    "words = jieba.lcut(full_content)\n",
+    "stop_words = set(stopwords.words('chinese'))\n",
+    "filtered_words = [word for word in words if word not in stop_words]\n",
+    "\n",
+    "# TF-IDF特征提取\n",
+    "tfidf_vectorizer = TfidfVectorizer()\n",
+    "tfidf = tfidf_vectorizer.fit_transform([' '.join(filtered_words)])\n",
+    "\n",
+    "# 计算TF-IDF特征值\n",
+    "feature_names = tfidf_vectorizer.get_feature_names_out()\n",
+    "tfidf_feature_values = tfidf.toarray()[0]\n",
+    "\n",
+    "# 关键词识别：选择TF-IDF得分高的词\n",
+    "top_n = 15  # 选择排名前10的关键词\n",
+    "keywords = sorted(zip(tfidf_feature_values, feature_names), reverse=True)[:top_n]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 14,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Keyword: 文本, Evidence: 数据量 数据预处理 数理统计 文件 文体 文本 文本向量化 文本处理 文本挖掘 文本聚类 文档\n",
+      "Keyword: 分类, Evidence: 分为 分布 分析 分析方法 分派 分类 分类器 分类法 分类结果 分词 切分\n",
+      "Keyword: 数据, Evidence: 效果 效果图 效率 教育 数字化 数据 数据共享 数据挖掘 数据量 数据预处理 数理统计\n",
+      "Keyword: tf, Evidence: termfrequency termfrequencydocumentfrequency test testexpression text tf tfidf tn train trie txt\n",
+      "Keyword: 向量, Evidence: 合并 同义词 后期 后续 后验 向量 含有 周昭涛 商贸 嗓声 噪声\n",
+      "Keyword: 分词, Evidence: 分派 分类 分类器 分类法 分类结果 分词 切分 划分 刘健 刘海峰 创新\n",
+      "Keyword: 模型, Evidence: 样本 核心 概率 概率模型 模块 模型 模拟 次数 欧式 此基础 步骤\n",
+      "Keyword: idf, Evidence: df di dj excel hmm idf inversedocumentfrequency jieba k个类 k维 lda\n",
+      "Keyword: 特征, Evidence: 清洗 潜在 点赞 热点问题 热点问题排序 特征 特征值 特征向量 特征性 特征提取 特征词\n",
+      "Keyword: 基于, Evidence: 困难 图为 图书 均值 城乡建设 基于 增益 复杂度 夏磊 大规模 大部分\n",
+      "Keyword: 文本聚类, Evidence: 文体 文本 文本向量化 文本处理 文本挖掘 文本聚类 文档 文章 方法 施政 旅游\n",
+      "Keyword: 一个, Evidence: w2 wkj wn word2vec wt 一个 一是 一种 一类 一级 一行\n",
+      "Keyword: 附件, Evidence: 错误 长短 阈值 阮光册 阶段 附件 陈晓美 降低 降维 除以 集合\n",
+      "Keyword: 计算, Evidence: 观察 观察所 规划 规则 计生 计算 计算技术 计算机 计算机系统 计算结果 训练\n",
+      "Keyword: 用词, Evidence: 用下式 用于 用到 用户 用来 用词 电子政务 界限 留言 登录 目录\n"
+     ]
+    }
+   ],
+   "source": [
+    "# 论据挖掘：这里我们需要分析关键词的上下文，这可能需要更复杂的逻辑\n",
+    "# 例如，我们可以查找关键词附近的词，以确定可能的论据\n",
+    "context_window = 5  # 定义上下文窗口大小\n",
+    "evidences = {}\n",
+    "for keyword in keywords:\n",
+    "    keyword_index = list(feature_names).index(keyword[1])\n",
+    "    start = max(0, keyword_index - context_window)\n",
+    "    end = min(len(feature_names), keyword_index + context_window + 1)\n",
+    "    evidences[keyword[1]] = ' '.join(feature_names[start:end])\n",
+    "\n",
+    "# 输出关键词和对应的论据\n",
+    "for keyword, evidence in evidences.items():\n",
+    "    print(f\"Keyword: {keyword}, Evidence: {evidence}\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df_content_redundant_ratio= pd.DataFrame({'redundant_ratio': redundant_ratio, 'filename': concat_content['filename'][0:540]})"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df_content_redundant_ratio.to_excel(\"C:/Users/0/one/final_taidibei/df_content_redundant_ratio.xlsx\", index=False, engine='openpyxl')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import cntext as ct"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 16,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "readability=[]\n",
+    "for i in range(len(concat_content)):\n",
+    "    readability.append(ct.readability(concat_content['content'][i],lang='chinese').get('readability3'))\n",
+    "#readability越大，可读性越差"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 21,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "readability_score=[]\n",
+    "for i in range(len(concat_content)):\n",
+    "    readability_score.append(1-(readability[i]/max(readability)))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 23,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df_readability_score= pd.DataFrame({'readability_score': readability_score, 'filename': concat_content['filename']})"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 24,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df_readability_score.to_excel(\"C:/Users/0/one/final_taidibei/df_readability_score.xlsx\", index=False, engine='openpyxl')"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "transformers",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.9.19"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}
