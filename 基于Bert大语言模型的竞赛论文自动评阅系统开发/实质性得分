@@ -1,0 +1,172 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Apr 21 17:15:14 2024
+
+@author: 王爸爸
+"""
+
+import os
+import torch
+from PyPDF2 import PdfReader
+from transformers import BertTokenizer, BertModel
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
+import numpy as np
+
+def extract_pdf_paragraphs(file_path):
+    reader = PdfReader(file_path)
+    paragraphs = []
+    for page in reader.pages:
+        text = page.extract_text() or ''  # 如果页面没有文本返回空字符串
+        # 分割页面文本为段落
+        paragraphs.extend(text.split('  \n '))
+    return paragraphs
+
+pdf_folder = r'C:\Users\王爸爸\Desktop\泰迪杯数据挖掘\pdf_folder'
+evaluation_criteria = ["群众留言分类", "热点问题挖掘", "回复意见的评价"]
+
+tokenizer = BertTokenizer.from_pretrained("bert-base-chinese")
+model = BertModel.from_pretrained("bert-base-chinese")
+
+evaluation_criteria_tokens = tokenizer(evaluation_criteria, return_tensors='pt', padding=True, truncation=True)
+evaluation_criteria_output = model(**evaluation_criteria_tokens)
+
+# 处理每篇论文的每个段落
+paper_scores = []
+paper_top_paragraphs = []
+for filename in os.listdir(pdf_folder):
+    if filename.endswith('.pdf'):
+        paper_path = os.path.join(pdf_folder, filename)
+        paragraphs = extract_pdf_paragraphs(paper_path)
+        paragraph_scores = []
+        
+        for paragraph in paragraphs:
+            paragraph_tokens = tokenizer(paragraph, return_tensors='pt', padding=True, truncation=True)
+            paragraph_output = model(**paragraph_tokens)
+            similarity_score = cosine_similarity(
+                evaluation_criteria_output.last_hidden_state.mean(dim=1).detach().numpy(),
+                paragraph_output.last_hidden_state.mean(dim=1).detach().numpy()
+            )
+            paragraph_scores.append(similarity_score.flatten().tolist())
+        
+        # 转换分数列表为numpy数组
+        scores_matrix = np.array(paragraph_scores)
+
+        # 对每个评估标准，找到得分最高的段落索引
+        top_paragraphs_indices = scores_matrix.argmax(axis=0)
+        
+        # 根据索引获取最高分段落的文本和分数
+        top_paragraph_info = [(paragraphs[idx], scores_matrix[idx, criterion_index])
+                              for criterion_index, idx in enumerate(top_paragraphs_indices)]
+        top_paragraph_scores = [scores_matrix[idx, criterion_index] for criterion_index, idx in enumerate(top_paragraphs_indices)]
+
+        paper_top_paragraphs.append((filename,top_paragraph_scores))
+        paper_scores.append(paragraph_scores)
+#print( paper_top_paragraphs)
+
+#for paper_index, top_paragraphs in enumerate(paper_top_paragraphs):
+#   print(f"Paper {paper_index + 1}:")
+#    for criterion_index, (paragraph, score) in enumerate(top_paragraphs):
+#        print(f"  Criterion {criterion_index + 1} - '{evaluation_criteria[criterion_index]}':")
+#        print(f"  Highest Scoring Paragraph: {paragraph}")
+#       print(f"  Score: {score}")
+#    print()
+    
+    
+####################################################################################################
+
+
+#对各论文各段落进行聚类后得到各聚类的关键词，计算各关键词与各评阅标准之间的相似得分
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.cluster import KMeans
+
+# 函数用于处理论文并聚类
+def process_paper_and_cluster(paragraphs, n_clusters):
+    if len(paragraphs) < n_clusters:
+        n_clusters = len(paragraphs)  # 如果样本数小于指定的簇数，则将簇数设置为样本数
+    vectorizer = TfidfVectorizer(max_df=1.0, min_df=1)
+    X = vectorizer.fit_transform(paragraphs)
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+    kmeans.fit(X)
+    clusters = kmeans.labels_
+    
+    # 提取每个聚类的关键词
+    cluster_keywords = []
+    for i in range(n_clusters):
+        cluster_center = kmeans.cluster_centers_[i]
+        cluster_terms = [vectorizer.get_feature_names_out()[j] 
+                         for j in cluster_center.argsort()[-1:]]  # 选择得分最高的1个关键词
+        cluster_keywords.append(cluster_terms)
+    return cluster_keywords
+
+
+all_papers_cluster_scores = []
+all_papers_cluster_keywords = []
+
+# 遍历pdf文件夹中的每个文件
+for filename in os.listdir(pdf_folder):
+    if filename.endswith('.pdf'):
+        paper_path = os.path.join(pdf_folder, filename)
+        paragraphs = extract_pdf_paragraphs(paper_path)
+        cluster_keywords = process_paper_and_cluster(paragraphs, n_clusters=5)
+
+        paragraph_scores = []  # 应该在这里初始化
+        for cluster in cluster_keywords:
+            # 对每个聚类的关键词进行tokenization
+            cluster_tokens = tokenizer(cluster, return_tensors='pt', padding=True, truncation=True)
+            cluster_output = model(**cluster_tokens)
+
+            # 计算相似性得分
+            similarity_score = cosine_similarity(
+                evaluation_criteria_output.last_hidden_state.mean(dim=1).detach().numpy(),
+                cluster_output.last_hidden_state.mean(dim=1).detach().numpy()
+            )
+            paragraph_scores.append(similarity_score.flatten().tolist())
+        
+        # 将当前论文的聚类得分添加到总列表
+        all_papers_cluster_scores.append((filename, paragraph_scores))
+        all_papers_cluster_keywords.append((filename, cluster_keywords))
+#print(all_papers_cluster_scores)
+# 打印每篇论文的聚类得分
+#for filename, scores in all_papers_cluster_scores:
+#   print(f"Scores for {filename}:")
+#    for score in scores:
+#        print(score)
+
+    
+####################################################################################################
+
+
+# 分数整合
+type(all_papers_cluster_scores)
+type(paper_top_paragraphs)
+
+sums = [(file_name, np.mean(np.array(data_list), axis=0)) for file_name, data_list in all_papers_cluster_scores]
+#print(sums)
+data1_dict = {file_name: data_array for file_name, data_array in paper_top_paragraphs}
+data2_dict = {file_name: data_array for file_name, data_array in sums}
+weighted_avg_data = []
+for file_name in data1_dict.keys():
+    # 将列表转换为numpy数组
+    data1_array = np.array(data1_dict[file_name])
+    data2_array = np.array(data2_dict[file_name])
+    
+    # 计算加权平均值
+    weighted_avg = 0.4 * data1_array + 0.6 * data2_array
+    weighted_avg_data.append((file_name, weighted_avg))
+
+#print(weighted_avg_data)
+Substantial_score = []
+for file_name, array_data in weighted_avg_data:
+    # 计算每篇PDF数据的平均值
+    average = np.mean(array_data)*10
+    Substantial_score.append((file_name, average))
+import pandas as pd
+#print(Substantial_score)
+#print(all_papers_cluster_keywords)
+df = pd.DataFrame(Substantial_score, columns=['File Name', 'Score'])
+df.to_excel(r'C:\Users\王爸爸\Desktop\实质性得分.xlsx', index=False)
+dk = pd.DataFrame(all_papers_cluster_keywords, columns=['File Name', 'Keywords'])
+dk_expanded = dk['Keywords'].apply(pd.Series).add_prefix('Keyword_')
+dk_combined = pd.concat([dk['File Name'], dk_expanded], axis=1)
+dk_combined.to_excel(r'C:\Users\王爸爸\Desktop\关键词.xlsx', index=False)
